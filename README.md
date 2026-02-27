@@ -1,4 +1,4 @@
-# proxmox-macos-ventura-guide
+# proxmox-macos-install-guide
 
 Practical, tested guide to run macOS on Proxmox 9 (Intel) with OpenCore.
 
