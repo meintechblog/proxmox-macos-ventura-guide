@@ -5,7 +5,7 @@ VMID="${1:-900}"
 BRIDGE="${2:-vmbr0}"
 STORAGE="${3:-local-lvm}"
 OPENCORE_VOLID="${4:-local-lvm:vm-${VMID}-disk-2}"
-RECOVERY_VOLID="${5:-local-lvm:vm-${VMID}-disk-6}"
+RECOVERY_VOLID="${5:-local-lvm:vm-${VMID}-disk-3}"
 
 # DANGER: destroys VM if it exists
 if qm config "$VMID" >/dev/null 2>&1; then
@@ -14,7 +14,7 @@ if qm config "$VMID" >/dev/null 2>&1; then
 fi
 
 qm create "$VMID" \
-  --name macos-hulki \
+  --name macos-tahoe \
   --machine pc-q35-8.1 \
   --bios ovmf \
   --cores 4 \
@@ -39,4 +39,6 @@ qm set "$VMID" --args '-device isa-applesmc,osk="ourhardworkbythesewordsguardedp
 qm set "$VMID" --boot "order=ide0;ide2;sata0"
 
 echo "OK: VM $VMID rebuilt"
+echo "OpenCore disk: $OPENCORE_VOLID"
+echo "Tahoe recovery disk: $RECOVERY_VOLID"
 qm config "$VMID"
