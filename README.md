@@ -17,14 +17,14 @@ Practical, tested guide to run macOS Ventura on Proxmox 9 (Intel) with OpenCore.
 
 ## Quick Start
 
-1. Read [docs/INSTALL_DE.md](docs/INSTALL_DE.md) (full step-by-step).
+1. Read [docs/INSTALL.md](docs/INSTALL.md) (full step-by-step).
 2. Use `scripts/make_ventura_recovery_fat.sh` to build the Ventura recovery FAT image.
 3. Use `scripts/vm900_rebuild.sh` to rebuild VM 900 with stable defaults.
 4. In macOS installer, erase the 100+ GB target disk as `APFS + GUID`.
 
 ## Repo Layout
 
-- `docs/INSTALL_DE.md` - full German install routine (current working baseline)
+- `docs/INSTALL.md` - full English install routine (current working baseline)
 - `docs/TROUBLESHOOTING.md` - common issues and exact fixes
 - `scripts/make_ventura_recovery_fat.sh` - create FAT recovery image with `com.apple.recovery.boot`
 - `scripts/vm900_rebuild.sh` - rebuild VM 900 with tested settings

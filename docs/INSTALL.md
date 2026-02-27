@@ -1,52 +1,52 @@
-# macOS Ventura auf Proxmox 9 (Intel) - Praxiserprobte Installationsroutine
+# macOS Ventura on Proxmox 9 (Intel) - Practical Installation Routine
 
-## Basis-Anleitung (als Referenz)
+## Base reference
 https://www.xda-developers.com/i-installed-macos-on-proxmox-and-it-works-well/
 
-## Voraussetzungen
+## Requirements
 
-- Intel CPU mit VT-x aktiviert
+- Intel CPU with VT-x enabled
 - Proxmox 9
-- Storage `local-lvm` vorhanden
-- Mindestens 8 GB RAM (empfohlen 16 GB)
-- Vorhandene Bridge (hier: `vmbr0`)
+- `local-lvm` storage available
+- At least 8 GB RAM (16 GB recommended)
+- Existing bridge (example used here: `vmbr0`)
 
 ------------------------------------------------------------------------
 
-## 0) Host-Sicherheit (wichtig)
+## 0) Host safety (important)
 
-Diese Routine aendert nur VM `900`.
+This routine changes only VM `900`.
 
-- Kein Edit von `/etc/default/grub`
-- Keine Kernel-/Modul-Aenderungen
-- Keine BIOS-Aenderungen
+- No edits to `/etc/default/grub`
+- No kernel/module changes
+- No BIOS changes
 
 ------------------------------------------------------------------------
 
-## 1) TSC pruefen (wichtig ab Monterey)
+## 1) Check TSC (important since Monterey)
 
 ```bash
 dmesg | grep -i -e tsc -e clocksource
 cat /sys/devices/system/clocksource/clocksource0/current_clocksource
 ```
 
-Erwartet:
+Expected:
 
     clocksource: Switched to clocksource tsc
     tsc
 
 ------------------------------------------------------------------------
 
-## 2) VM 900 neu erstellen (Baseline)
+## 2) Rebuild VM 900 (baseline)
 
-Falls `900` schon existiert:
+If VM `900` already exists:
 
 ```bash
 qm stop 900 || true
 qm destroy 900 --purge 1 --destroy-unreferenced-disks 1
 ```
 
-Neu erstellen:
+Create fresh VM:
 
 ```bash
 qm create 900 \
@@ -71,13 +71,13 @@ qm set 900 --sata0 local-lvm:100,cache=none,discard=on,ssd=1
 
 ------------------------------------------------------------------------
 
-## 3) OpenCore erzeugen
+## 3) Generate OpenCore
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://install.osx-proxmox.com)"
 ```
 
-Abfragen:
+Prompts:
 - Generate serial -> `y`
 - SystemProductName -> `iMacPro1,1`
 - Apply changes -> `y`
@@ -85,7 +85,7 @@ Abfragen:
 
 ------------------------------------------------------------------------
 
-## 4) OpenCore ISO -> RAW importieren
+## 4) Convert/import OpenCore ISO as RAW
 
 ```bash
 cd /var/lib/vz/template/iso
@@ -93,19 +93,19 @@ qemu-img convert -f raw -O raw opencore-osx-proxmox-vm.iso opencore.raw
 qm importdisk 900 opencore.raw local-lvm
 ```
 
-Dann OpenCore als `ide0` einhaengen (nicht als CD-ROM):
+Attach OpenCore on `ide0` (not as CD-ROM):
 
 ```bash
 qm config 900 | grep '^unused'
-# Beispiel: unused0: local-lvm:vm-900-disk-2
+# Example: unused0: local-lvm:vm-900-disk-2
 qm set 900 --ide0 local-lvm:vm-900-disk-2
 ```
 
 ------------------------------------------------------------------------
 
-## 5) Ventura-Recovery korrekt laden (entscheidend)
+## 5) Download Ventura recovery correctly (critical)
 
-Wichtig: Fuer Ventura die passende Board-ID verwenden:
+Use Ventura board-id:
 
 `Mac-B4831CEBD52A0C4C`
 
@@ -117,7 +117,7 @@ python3 /root/OSX-PROXMOX/tools/macrecovery/macrecovery.py \
   download
 ```
 
-Dann FAT-Recovery-Image mit `com.apple.recovery.boot` bauen:
+Build a FAT recovery image containing `com.apple.recovery.boot`:
 
 ```bash
 fallocate -x -l 1024M /var/lib/vz/template/iso/recovery-ventura-fat.img
@@ -134,76 +134,76 @@ losetup -d "$LOOPDEV"
 rmdir /mnt/recovery-ventura
 ```
 
-Import und als `ide2` einhaengen:
+Import and attach as `ide2`:
 
 ```bash
 qm importdisk 900 /var/lib/vz/template/iso/recovery-ventura-fat.img local-lvm
 qm config 900 | grep '^unused'
-# Beispiel: unused2: local-lvm:vm-900-disk-6
+# Example: unused2: local-lvm:vm-900-disk-6
 qm set 900 --ide2 local-lvm:vm-900-disk-6
 ```
 
 ------------------------------------------------------------------------
 
-## 6) Stabilitaets-Args setzen (Apple-Logo-Freeze-Fix)
+## 6) Apply stability args (Apple-logo freeze fix)
 
 ```bash
 qm set 900 --args '-device isa-applesmc,osk="ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc" -smbios type=2 -device usb-kbd,bus=ehci.0,port=2 -device usb-mouse,bus=ehci.0,port=3 -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off -cpu Cascadelake-Server,vendor=GenuineIntel,+invtsc,-pcid,-hle,-rtm,-avx512f,-avx512dq,-avx512cd,-avx512bw,-avx512vl,-avx512vnni,kvm=on,vmware-cpuid-freq=on'
 qm set 900 --boot "order=ide0;ide2;sata0"
 ```
 
-Wichtig:
-- Kein `-v` in `qm set --args`
-- Verbose gehoert in OpenCore-Bootargs, nicht in QEMU-Args
+Important:
+- Do not put `-v` in `qm set --args`
+- Verbose belongs to OpenCore boot args, not QEMU args
 
-Optional (nur falls noVNC/OpenCore immer US-Layout liefert):
+Optional (only if noVNC/OpenCore keeps US keyboard layout):
 
 ```bash
 qm set 900 --keyboard de
 ```
 
-Hinweis: Nicht immer noetig. Oft reicht in der macOS-UI oben rechts die Tastatur auf Deutsch zu stellen.
+Note: often not required. In many setups selecting German keyboard in macOS UI (top-right) is enough.
 
 ------------------------------------------------------------------------
 
-## 7) Start + Installation
+## 7) Start + install
 
 ```bash
 qm start 900
 ```
 
 In OpenCore:
-- einmal `Reset NVRAM`
-- dann `Install macOS Ventura`
+- Run `Reset NVRAM` once
+- Then select `Install macOS Ventura`
 
-Wenn im Installer "kein Volume gross genug" erscheint:
-1. `Back`
-2. `Disk Utility`
+If installer says no volume is large enough:
+1. Click `Back`
+2. Open `Disk Utility`
 3. `View` -> `Show All Devices`
-4. `QEMU HARDDISK Media` (ca. 107 GB) auswaehlen
-5. `Erase`:
+4. Select `QEMU HARDDISK Media` (~107 GB)
+5. Click `Erase` with:
    - Name: `Macintosh HD`
    - Format: `APFS`
    - Scheme: `GUID Partition Map`
-6. Disk Utility schliessen und Ventura-Installation erneut starten
+6. Close Disk Utility and start Ventura install again
 
 ------------------------------------------------------------------------
 
-## Nach erfolgreichem Erststart
+## Post-install cleanup
 
-Recovery aus Boot-Reihenfolge nehmen:
+Remove recovery from boot order:
 
 ```bash
 qm set 900 --boot "order=ide0;sata0"
 ```
 
-Optional Recovery entfernen:
+Optional: remove recovery disk:
 
 ```bash
 qm set 900 --delete ide2
 ```
 
-Optional Snapshot:
+Optional: create snapshot:
 
 ```bash
 qm snapshot 900 clean-install
@@ -211,21 +211,21 @@ qm snapshot 900 clean-install
 
 ------------------------------------------------------------------------
 
-## Typische Probleme & Ursachen
+## Common issues and causes
 
-| Problem | Ursache | Fix |
+| Problem | Cause | Fix |
 | --- | --- | --- |
-| UEFI Shell | OpenCore falsch eingebunden | OpenCore als RAW importieren und als `ide0` mounten |
-| Apple-Logo ohne Fortschritt | CPU/Machine-Kombi unguenstig | `pc-q35-8.1` + Cascadelake-Args wie oben |
-| Recovery bootet, aber spaeter Stall | Falsche Board-ID beim Recovery-Download | Ventura mit `Mac-B4831CEBD52A0C4C` neu laden |
-| `kvm: -v: invalid option` | `-v` in QEMU-Args gesetzt | `qm set 900 --args ...` ohne `-v` |
-| Kein Installationsvolume gross genug | 100GB-Disk nicht initialisiert | Disk Utility -> Show All Devices -> 107GB Disk als APFS/GUID erase |
-| Tastatur wirkt wie US | noVNC/OpenCore/macOS-Layout nicht synchron | In macOS oben rechts Deutsch waehlen; optional `qm set 900 --keyboard de` |
+| UEFI shell | OpenCore attached incorrectly | Import OpenCore as RAW and attach on `ide0` |
+| Apple logo freeze | Unstable CPU/machine combination | Use `pc-q35-8.1` + Cascadelake args above |
+| Recovery boots but later stalls | Wrong board-id used for recovery download | Re-download Ventura recovery with `Mac-B4831CEBD52A0C4C` |
+| `kvm: -v: invalid option` | `-v` was set in QEMU args | Set `qm set 900 --args ...` without `-v` |
+| No install volume large enough | 100 GB target disk not initialized | Disk Utility -> Show All Devices -> erase 107 GB disk as APFS/GUID |
+| Keyboard behaves as US | noVNC/OpenCore/macOS layouts not aligned | Set layout in macOS UI first; optionally `qm set 900 --keyboard de` |
 
 ------------------------------------------------------------------------
 
-## Kurz-Empfehlung
+## Short recommendation
 
-- Ventura statt Sonoma/Sequoia fuer mehr Stabilitaet
-- Vor macOS-Updates immer Snapshot
-- Keine Host-Tweaks, solange VM mit obiger Konfig stabil bootet
+- Prefer Ventura over Sonoma/Sequoia for stability
+- Always snapshot before macOS updates
+- Keep host untouched while VM config is stable
